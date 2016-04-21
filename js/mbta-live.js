@@ -15,12 +15,12 @@ function drawLegendBox () {
         .style('stroke-width', '1px');
 };
 
-function colorSelector (route) {
+function selectModeOfTransportationColor (modeOfTransportation, route) {
     
-    var color = new String();
+    var color = '';
     
     //console.log(route);
-    switch (route.mode_name) {
+    switch (modeOfTransportation.mode_name) {
         case 'Subway':
             color = route.route_name.split(' Line')[0].toLowerCase();
             break;
@@ -28,7 +28,7 @@ function colorSelector (route) {
             color = 'purple';
             break;
         case 'Bus':
-            color = '#e2e200';
+            color = 'black';
             break;
         case 'Boat':
             color = 'white';
@@ -40,7 +40,7 @@ function colorSelector (route) {
     return color;
 };
 
-function colorSelectorRoute (route) {
+function selectRouteColor (route) {
         //console.log(route);
         if (route.mode_name === 'Subway') {
           return route.route.route_name.split(' Line')[0].toLowerCase();
@@ -59,62 +59,70 @@ function colorSelectorRoute (route) {
         }
     };
 
-function drawDotsForRoute (routeVehicles, canvas) {
-
-    var modeOfTransportation = routeVehicles.mode_name,
-        routeId = routeVehicles.route_id,
-        routeDirections = routeVehicles.direction,
+function drawDotsForVehicles (vehicles, canvas) {
+    
+    var modesOfTransportation = Object.keys(vehicles).length > 0 ? vehicles.mode : [],
         canvasWidth = parseFloat(canvas.style('width')),
         canvasHeight = parseFloat(canvas.style('height')),
         uniqueDotSetId = Math.ceil(100000 * Math.random()),
-        routeClass = '_' + routeId,
-        modeClass = '_' + modeOfTransportation,
-        color = colorSelector(routeVehicles),
         yScale = d3.scale.linear()
                             .domain([42.447176, 42.270097])
                             .range([0, canvasHeight]),
         xScale = d3.scale.linear()
                             .domain([-71.312943, -70.880013])
-                            .range([0, canvasWidth]);
-
-    for (var i = 0; i < routeDirections.length; i++) {
+                            .range([0, canvasWidth]),
+        pathFunction = d3.svg.line()
+                                .interpolate('basis')
+                                .x(function (d) {return xScale(d.vehicle_lon)})
+                                .y(function (d) {return yScale(d.vehicle_lat)});
+    
+    console.log('Modes: ' + modesOfTransportation.map(function(mode){return mode.mode_name;}).join(', '));
+    
+    for ( var iMode = 0; iMode < modesOfTransportation.length; iMode++ ) {
         
-        var thisDirection = routeDirections[i],
-            trips = thisDirection.trip,
-            directionClass = '_' + routeId + '_' + thisDirection.direction_id,
-            tripCircle = canvas.selectAll('circle.' + directionClass)
-                                .data(trips),
-            tripText = canvas.selectAll('text.' + directionClass)
-                                .data(trips);
+        var thisModeOfTransportation = modesOfTransportation[iMode],
+            thisModeOfTransportationName = thisModeOfTransportation.mode_name,
+            thisModeOfTransportationRoutes = thisModeOfTransportation.route;
         
-        tripCircle.attr('cx', function (d) {
-                            return xScale(d.vehicle.vehicle_lon);
-                        })
-                    .attr('cy', function (d) {
-                        return yScale(d.vehicle.vehicle_lat);
-                    });
+        console.log('Mode-Routes: ' + thisModeOfTransportationRoutes.map(function(route){return route.route_name;}).join(', '));
         
-        tripCircle.enter()
+        for ( var iRoute = 0; iRoute < thisModeOfTransportationRoutes.length; iRoute++ ) {
+            
+            var thisRoute = thisModeOfTransportationRoutes[iRoute],
+                thisRouteId = thisRoute.route_id,
+                thisRouteName = thisRoute.route_name,
+                thisRouteDirections = thisRoute.direction,
+                thisRouteColor = selectModeOfTransportationColor(thisModeOfTransportation, thisRoute);
+            
+            console.log('Routes-Dirs: ' + thisRouteDirections.map(function(dir){return dir.direction_name;}).join(', '));
+            
+            for ( var iDirection = 0; iDirection < thisRouteDirections.length; iDirection++ ) {
+                
+                var thisDirection = thisRouteDirections[iDirection],
+                    thisDirectionId = thisDirection.direction_id,
+                    thisDirectionName = thisDirection.direction_name,
+                    thisDirectionTrips = thisDirection.trip,
+                    thisRouteDirectionClass = 'route' + thisRouteId + 'direction' + thisDirectionId,
+                    tripCircles = canvas.selectAll('circle.' + thisRouteDirectionClass)
+                                        .data(thisDirectionTrips),
+                    tripTexts = canvas.selectAll('text.' + thisRouteDirectionClass)
+                                        .data(thisDirectionTrips);
+                
+                console.log('Dir-Trips: ' + thisRouteName + ' to ' + thisDirectionTrips.map(function(trip){return trip.trip_headsign}).join(', '));
+                
+                tripCircles.enter()  // enter selection
                     .append('circle')
-                    .attr('class', directionClass)
-                    .attr('id', function (d) {
-                            return directionClass + d.trip_id + '_dot';
-                        })
-                    .attr('cx', function (d) {
-                            return xScale(d.vehicle.vehicle_lon);
-                        })
-                    .attr('cy', function (d) {
-                        return yScale(d.vehicle.vehicle_lat);
-                    })
-                    .attr('r', modeOfTransportation === 'Bus'? 1.75 : 5)
-                    .style('fill', color)
-                    .style('opacity', modeOfTransportation === 'Bus' ? 0.6 : 0.8)
+                    .attr('class', thisRouteDirectionClass)
+                    .attr('id', function (d) {return thisRouteDirectionClass + d.trip_id + '_dot';})
+                    .style('fill', thisRouteColor)
+                    .attr('r', thisModeOfTransportationName === 'Bus'? 1.5 : 3)
+                    .style('opacity', thisModeOfTransportationName === 'Bus' ? 0.6 : 0.8)
                     .on('mouseenter', function () {
 
                         var thisClass = d3.select(this).attr('class');
                        
                         d3.select('text.' + thisClass)
-                            .style('opacity', 0.6);
+                            .style('opacity', 0.4);
                     })
                     .on('mouseleave', function () {
                         
@@ -124,104 +132,97 @@ function drawDotsForRoute (routeVehicles, canvas) {
                             .transition().duration(100)
                             .style('opacity', 0);
                     });
+                
+                tripCircles
+                    .attr('cx', function (d) {return xScale(d.vehicle.vehicle_lon);})
+                    .attr('cy', function (d) {return yScale(d.vehicle.vehicle_lat);})
         
-        tripCircle.exit().remove();
-        
-        tripText.enter()
-                .append('text')
-                .attr('id', function (d) {
-                    return directionClass + d.trip_id + '_text';
-                })
-                .attr('class', directionClass)
-                .attr('x', function (d) {
-                    return 0.025 * canvasWidth; //xScale(d.vehicle.vehicle_lon);
-                })
-                .attr('y', function (d) {
-                    return 0.05 * canvasHeight; //yScale(d.vehicle.vehicle_lat);
-                })
-                .text(function (d) {
-                    return d.trip_name;
-                })
-                .attr('text-width', 0.2 * canvasWidth)
-                .style('font-size', 0.03 * canvasHeight)
-                .style('font-family', 'sans-serif')
-                .style('fill', '#000000')
-                .style('opacity', 0);
-        
-        tripText.exit().remove();
-        
-        tripCircle.on('mouseenter', function () {
+                tripCircles.exit().remove(); // exit selection
+                
+                tripTexts.enter()  // enter selection
+                    .append('text')
+                    .attr('id', function (d) {return thisRouteDirectionClass + d.trip_id + '_text'})
+                    .attr('class', thisRouteDirectionClass)
+                    .attr('x', 0.01 * canvasWidth)
+                    .attr('y', 0.05 * canvasHeight)
+                    .text(function (d) {return thisRouteName + ' ' + thisDirectionName + ' to ' + d.trip_headsign;})
+                    .attr('text-width', 0.2 * canvasWidth)
+                    .style('font-size', 0.03 * canvasHeight)
+                    .style('font-family', 'sans-serif')
+                    .style('fill', thisRouteColor)
+                    .style('opacity', 0);
 
-                        var thisClass = d3.select(this).attr('class');
-                       
-                        d3.select('text.' + thisClass)
-                            .style('opacity', 0.6);
-                    })
-                    .on('mouseleave', function () {
-                        
-                        var thisClass = d3.select(this).attr('class');
+                tripTexts.exit().remove();  //exit selection
+                
+                for (var iTrips = 0; iTrips < thisDirectionTrips.length; iTrips++) {
+            
+                    var thisTrip = thisDirectionTrips[iTrips],
+                        thisTripId = thisTrip.trip_id,
+                        tripPath = canvas.select('path.' + thisRouteDirectionClass + thisTripId);
 
-                        d3.select('text.' + thisClass)
-                            .transition().duration(100)
-                            .style('opacity', 0);
-                    });
-        
-        for (var j = 0; j < trips.length; j++) {
-            
-            var thisTrip = trips[j],
-                thisTripId = thisTrip.trip_id,
-                newTrip = true,
-                pathFunction = d3.svg.line()
-                                    .interpolate('basis')
-                                    .x(function (d) {return xScale(d.vehicle_lon)})
-                                    .y(function (d) {return yScale(d.vehicle_lat)}),
-                tripPath = canvas.select('path.' + directionClass + thisTripId);
-            
-            if (tripPath.empty()) {
-                
-                var thisTripLat = thisTrip.vehicle.vehicle_lat,
-                    thisTripLon = thisTrip.vehicle.vehicle_lon, 
-                    newTripPath = canvas.append('path')
-                                        .attr('class', directionClass + thisTripId)
-                                        .attr('id', directionClass + thisTripId + '_path')
-                                        .style('stroke', color)
-                                        .style('fill', 'rgba(0,0,0,0)')
-                                        .style('stroke-width', modeOfTransportation === 'Bus'? 1.75 : 3)
-                                        .style('opacity', modeOfTransportation === 'Bus' ? 0.6 : 0.8);
-                
-                newTripPath.datum([{'vehicle_lat': thisTripLat, 'vehicle_lon': thisTripLon}]);
-            
-            } else {
-                
-                tripPath.datum()
-                        .push({'vehicle_lat': thisTrip.vehicle.vehicle_lat, 
-                                'vehicle_lon': thisTrip.vehicle.vehicle_lon});
-                    
-                tripPath.transition()
-                    .duration(5000)
-                    .ease("linear")
-                    .attr('d', pathFunction);
-            
+                    if (tripPath.empty()) {  // if trip doesn't have a path associated yet
+
+                        var thisTripLat = thisTrip.vehicle.vehicle_lat,
+                            thisTripLon = thisTrip.vehicle.vehicle_lon, 
+                            newTripPath = canvas.append('path')
+                                                .attr('class', thisRouteDirectionClass + thisTripId)
+                                                .attr('id', thisRouteDirectionClass + thisTripId + '_path')
+                                                .style('stroke', thisRouteColor)
+                                                .style('fill', 'rgba(0,0,0,0)')  // transparent fill
+                                                .style('stroke-width', thisModeOfTransportationName === 'Bus'? 1 : 3)
+                                                .style('stroke-opacity', thisModeOfTransportationName === 'Bus' ? 0.6 : 0.8);
+
+                        newTripPath.datum([{'vehicle_lat': thisTripLat,   // add first data point
+                                            'vehicle_lon': thisTripLon}]);
+
+                    } else {  // if path already exists
+
+                        tripPath.datum()
+                                .push({'vehicle_lat': thisTrip.vehicle.vehicle_lat,   // add new data point
+                                        'vehicle_lon': thisTrip.vehicle.vehicle_lon});
+
+                        tripPath.transition()
+                            .duration(5000)
+                            .ease("linear")
+                            .attr('d', pathFunction);  // redraw path of vehicle
+                    }
+                }        
             }
-            
-            console.log(thisTrip.trip_name + ', ' + routeVehicles.route_id);
         }
-
     }
 }
 
-
-function getVehiclePositions (routes, callbackFunction) {
+function getVehicles (routes, callbackFunction) {
     
-    routes.forEach(function getVehiclePositionsByRoute (route, index) {
+    // get vehicles on supplied list of route objects
+    
+    var routeChunks = [[]]; // need chunks of up to 20 for the API
+    
+    for ( var i = 0; i < routes.length; i++ ) {
         
-        var url = 'http://realtime.mbta.com/developer/api/v2/vehiclesbyroute',
+        var numberOfChunksSoFar = routeChunks.length,
+            workingChunk = routeChunks[numberOfChunksSoFar - 1],
+            thisRoute = routes[i];
+        
+        if ( workingChunk.length < 20 ) {
+            workingChunk.push(thisRoute);
+        } else {
+            routeChunks.push([thisRoute]);
+        }
+    }
+    
+    console.log('Chunked routes:\n' + routeChunks.map(function (item) {return item.map(function (item2) {return ' ' + item2.route_name;});}).join('\n'));
+    
+    routeChunks.forEach(function getVehiclesByRoutes (routes, index) {
+        
+        var url = 'http://realtime.mbta.com/developer/api/v2/vehiclesbyroutes',
             apiKey = 'wX9NwuHnZU2ToO7GmGR9uw', //'wX9NwuHnZU2ToO7GmGR9uw',4iS91ICFhEW6N3lGBVgU9g
-            getParams = {api_key: apiKey, route: route.route_id, format: 'json'};
-
+            routeIds = routes.map(function (item) {return item.route_id;}),
+            getParams = {api_key: apiKey, routes: routeIds.join(','), format: 'json'};
+ 
         $.getJSON(url, getParams, callbackFunction)
             .fail(function () {
-                console.log('No data for ' + route.route_name + ' ' + route.route_id);
+                console.log('Error requesting data for ' + getParams.routes);
             });
     });
     
@@ -266,10 +267,10 @@ function drawVehicleDots (data, canvas) {
     var routeList = getRoutes(data);
     
     function drawDotsInPositionsOnCanvas (data) {
-        drawDotsForRoute(data, canvas);
+        drawDotsForVehicles(data, canvas);
     }
     
-    getVehiclePositions(routeList, drawDotsInPositionsOnCanvas);    
+    getVehicles(routeList, drawDotsInPositionsOnCanvas);    
     
 }
 

@@ -17,6 +17,27 @@ html, body {
     height: 100%;
 }
 
+.title {
+    position: absolute;
+    bottom: 2.1%;
+    right: 2.1%;
+    font-family: sans-serif;
+    opacity: 0.1;
+    z-index: 10000;
+}
+
+.title:hover {
+    opacity: 0.4;
+}
+
+.heading {
+    font-size: 10vmin;
+}
+
+.byline {
+    font-size: 5vmin;
+}
+
 .mbta-live {
     position: absolute;
     top: 0;
