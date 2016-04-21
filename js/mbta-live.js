@@ -110,12 +110,19 @@ function drawDotsForVehicles (vehicles, canvas) {
                 
                 console.log('Dir-Trips: ' + thisRouteName + ' to ' + thisDirectionTrips.map(function(trip){return trip.trip_headsign}).join(', '));
                 
+                tripCircles
+                    .transition().duration(3000)
+                    .attr('cx', function (d) {return xScale(d.vehicle.vehicle_lon);})
+                    .attr('cy', function (d) {return yScale(d.vehicle.vehicle_lat);})
+                
                 tripCircles.enter()  // enter selection
                     .append('circle')
                     .attr('class', thisRouteDirectionClass)
                     .attr('id', function (d) {return thisRouteDirectionClass + d.trip_id + '_dot';})
                     .style('fill', thisRouteColor)
                     .attr('r', thisModeOfTransportationName === 'Bus'? 1.5 : 3)
+                    .attr('cx', function (d) {return xScale(d.vehicle.vehicle_lon);})
+                    .attr('cy', 0)
                     .style('opacity', thisModeOfTransportationName === 'Bus' ? 0.6 : 0.8)
                     .on('mouseenter', function () {
 
@@ -131,11 +138,10 @@ function drawDotsForVehicles (vehicles, canvas) {
                         d3.select('text.' + thisClass)
                             .transition().duration(100)
                             .style('opacity', 0);
-                    });
-                
-                tripCircles
-                    .attr('cx', function (d) {return xScale(d.vehicle.vehicle_lon);})
-                    .attr('cy', function (d) {return yScale(d.vehicle.vehicle_lat);})
+                    })
+                    .transition()
+                        .duration(3000)
+                        .attr('cy', function (d) {return yScale(d.vehicle.vehicle_lat);});
         
                 tripCircles.exit().remove(); // exit selection
                 

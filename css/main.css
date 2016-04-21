@@ -47,6 +47,13 @@ html, body {
 }
 
 circle {
-    transition: linear 10s;
     cursor: pointer;
+}
+
+.update {
+    fill: green;
+}
+
+.exit {
+    fill: red;
 }
