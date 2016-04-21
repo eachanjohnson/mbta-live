@@ -170,7 +170,7 @@ function drawDotsForVehicles (vehicles, canvas) {
                                                 .style('stroke', thisRouteColor)
                                                 .style('fill', 'rgba(0,0,0,0)')  // transparent fill
                                                 .style('stroke-width', thisModeOfTransportationName === 'Bus'? 1 : 3)
-                                                .style('stroke-opacity', thisModeOfTransportationName === 'Bus' ? 0.6 : 0.8);
+                                                .style('stroke-opacity', thisModeOfTransportationName === 'Bus' ? 0.1 : 0.3);
 
                         newTripPath.datum([{'vehicle_lat': thisTripLat,   // add first data point
                                             'vehicle_lon': thisTripLon}]);
