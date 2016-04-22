@@ -13,7 +13,7 @@ function drawLegendBox () {
         .style('fill', '#000000')
         .style('stroke', '#ffffff')
         .style('stroke-width', '1px');
-};
+}
 
 function selectModeOfTransportationColor (modeOfTransportation, route) {
     
@@ -38,26 +38,59 @@ function selectModeOfTransportationColor (modeOfTransportation, route) {
     }
         
     return color;
-};
+}
 
 function selectRouteColor (route) {
-        //console.log(route);
-        if (route.mode_name === 'Subway') {
-          return route.route.route_name.split(' Line')[0].toLowerCase();
+        
+    if (route.mode_name === 'Subway') {
+      return route.route.route_name.split(' Line')[0].toLowerCase();
+    }
+    else if (route.mode_name === 'Commuter Rail') {
+       return 'purple';
+    }
+    else if (route.mode_name === 'Bus') {
+        return 'yellow';
+    }
+    else if (route.mode_name === 'Boat') {
+        return 'white';
+    }
+    else {
+        return 'color error';
+    }
+}
+
+function pathTween(d1, precision) {
+                          
+    return function() {
+        var path0 = this,
+            path1 = path0.cloneNode(),
+            n0 = path0.getTotalLength(),
+            n1 = (path1.setAttribute("d", d1), path1).getTotalLength();
+
+        // Uniform sampling of distance based on specified precision.
+        var distances = [0], 
+            i = 0, 
+            dt = precision / Math.max(n0, n1);
+
+        while (i < 1) {
+            distances.push(i);
+            i += dt;
         }
-        else if (route.mode_name === 'Commuter Rail') {
-           return 'purple';
-        }
-        else if (route.mode_name === 'Bus') {
-            return 'yellow';
-        }
-        else if (route.mode_name === 'Boat') {
-            return 'white';
-        }
-        else {
-            return 'color error';
-        }
+
+        distances.push(1);
+
+        // Compute point-interpolators at each distance.
+        var points = distances.map(function(t) {
+          var p0 = path0.getPointAtLength(t * n0),
+              p1 = path1.getPointAtLength(t * n1);
+          return d3.interpolate([p0.x, p0.y], [p1.x, p1.y]);
+        });
+
+        return function(t) {
+          return t < 1 ? "M" + points.map(function(p) { return p(t); }).join("L") : d1;
+        };
     };
+}
 
 function drawDotsForVehicles (vehicles, canvas) {
     
@@ -200,39 +233,6 @@ function drawDotsForVehicles (vehicles, canvas) {
                         tripPath.datum()
                                 .push({'vehicle_lat': thisTripLat,   // add new data point
                                         'vehicle_lon': thisTripLon});
-                        
-                        function pathTween(d1, precision) {
-                          
-                            return function() {
-                                var path0 = this,
-                                    path1 = path0.cloneNode(),
-                                    n0 = path0.getTotalLength(),
-                                    n1 = (path1.setAttribute("d", d1), path1).getTotalLength();
-
-                                // Uniform sampling of distance based on specified precision.
-                                var distances = [0], 
-                                    i = 0, 
-                                    dt = precision / Math.max(n0, n1);
-                            
-                                while (i < 1) {
-                                    distances.push(i);
-                                    i += dt;
-                                }
-                            
-                                distances.push(1);
-
-                                // Compute point-interpolators at each distance.
-                                var points = distances.map(function(t) {
-                                  var p0 = path0.getPointAtLength(t * n0),
-                                      p1 = path1.getPointAtLength(t * n1);
-                                  return d3.interpolate([p0.x, p0.y], [p1.x, p1.y]);
-                                });
-
-                                return function(t) {
-                                  return t < 1 ? "M" + points.map(function(p) { return p(t); }).join("L") : d1;
-                                };
-                            };
-                        }
 
                         tripPath.transition()
                             .duration(3000)
