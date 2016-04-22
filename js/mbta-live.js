@@ -104,26 +104,27 @@ function drawDotsForVehicles (vehicles, canvas) {
                     thisDirectionTrips = thisDirection.trip,
                     thisRouteDirectionClass = 'route' + thisRouteId + 'direction' + thisDirectionId,
                     tripCircles = canvas.selectAll('circle.' + thisRouteDirectionClass)
-                                        .data(thisDirectionTrips),
+                                        .data(thisDirectionTrips, function (d) {return d.vehicle.vehicle_id;}),
                     tripTexts = canvas.selectAll('text.' + thisRouteDirectionClass)
-                                        .data(thisDirectionTrips);
+                                        .data(thisDirectionTrips, function (d) {return d.vehicle.vehicle_id;});
                 
-                console.log('Dir-Trips: ' + thisRouteName + ' to ' + thisDirectionTrips.map(function(trip){return trip.trip_headsign}).join(', '));
+                console.log('Dir-Trips: ' + thisRouteName + 
+                            ' to ' + thisDirectionTrips.map(function(trip){return trip.trip_headsign}).join(', '));
                 
-                tripCircles
+                tripCircles  // update selection
                     .transition().duration(3000)
                     .attr('cx', function (d) {return xScale(d.vehicle.vehicle_lon);})
-                    .attr('cy', function (d) {return yScale(d.vehicle.vehicle_lat);})
+                    .attr('cy', function (d) {return yScale(d.vehicle.vehicle_lat);});
                 
                 tripCircles.enter()  // enter selection
                     .append('circle')
                     .attr('class', thisRouteDirectionClass)
                     .attr('id', function (d) {return thisRouteDirectionClass + d.trip_id + '_dot';})
                     .style('fill', thisRouteColor)
-                    .attr('r', thisModeOfTransportationName === 'Bus'? 1.5 : 3)
+                    .attr('r', 15)
                     .attr('cx', function (d) {return xScale(d.vehicle.vehicle_lon);})
-                    .attr('cy', 0)
-                    .style('opacity', thisModeOfTransportationName === 'Bus' ? 0.6 : 0.8)
+                    .attr('cy', -1.5 * canvasHeight)
+                    .style('opacity', 0.5)
                     .on('mouseenter', function () {
 
                         var thisClass = d3.select(this).attr('class');
@@ -139,11 +140,22 @@ function drawDotsForVehicles (vehicles, canvas) {
                             .transition().duration(100)
                             .style('opacity', 0);
                     })
-                    .transition()
-                        .duration(3000)
+                    .transition().duration(3000)
+                        .attr('r', function (d) {
+                            if ( thisModeOfTransportationName === 'Bus') {
+                                return 1.5;
+                            } else {
+                                return Object.keys(d.vehicle).indexOf('vehicle_speed') > -1 ? 1 + Math.sqrt(d.vehicle.vehicle_speed) : 3;
+                            }
+                        })
                         .attr('cy', function (d) {return yScale(d.vehicle.vehicle_lat);});
-        
-                tripCircles.exit().remove(); // exit selection
+                
+                tripCircles.exit() // exit selection
+                    .transition().duration(3000)
+                        .style('opacity', 0)
+                        .attr('cy', 1.5 * canvasHeight)
+                        .attr('r', 15)
+                        .remove(); 
                 
                 tripTexts.enter()  // enter selection
                     .append('text')
@@ -157,40 +169,77 @@ function drawDotsForVehicles (vehicles, canvas) {
                     .style('font-family', 'sans-serif')
                     .style('fill', thisRouteColor)
                     .style('opacity', 0);
-
+                
                 tripTexts.exit().remove();  //exit selection
                 
                 for (var iTrips = 0; iTrips < thisDirectionTrips.length; iTrips++) {
             
                     var thisTrip = thisDirectionTrips[iTrips],
+                        thisTripLat = thisTrip.vehicle.vehicle_lat,
+                        thisTripLon = thisTrip.vehicle.vehicle_lon, 
                         thisTripId = thisTrip.trip_id,
                         tripPath = canvas.select('path.' + thisRouteDirectionClass + thisTripId);
 
                     if (tripPath.empty()) {  // if trip doesn't have a path associated yet
 
-                        var thisTripLat = thisTrip.vehicle.vehicle_lat,
-                            thisTripLon = thisTrip.vehicle.vehicle_lon, 
-                            newTripPath = canvas.append('path')
+                        var newTripPath = canvas.append('path')
                                                 .attr('class', thisRouteDirectionClass + thisTripId)
                                                 .attr('id', thisRouteDirectionClass + thisTripId + '_path')
                                                 .style('stroke', thisRouteColor)
                                                 .style('fill', 'rgba(0,0,0,0)')  // transparent fill
                                                 .style('stroke-width', thisModeOfTransportationName === 'Bus'? 1 : 3)
-                                                .style('stroke-opacity', thisModeOfTransportationName === 'Bus' ? 0.1 : 0.3);
+                                                .style('stroke-opacity', 0.3);
 
                         newTripPath.datum([{'vehicle_lat': thisTripLat,   // add first data point
                                             'vehicle_lon': thisTripLon}]);
+                        
+                        newTripPath.attr('d', 'M' + xScale(thisTripLon) + ',' + yScale(thisTripLat));
 
                     } else {  // if path already exists
 
                         tripPath.datum()
-                                .push({'vehicle_lat': thisTrip.vehicle.vehicle_lat,   // add new data point
-                                        'vehicle_lon': thisTrip.vehicle.vehicle_lon});
+                                .push({'vehicle_lat': thisTripLat,   // add new data point
+                                        'vehicle_lon': thisTripLon});
+                        
+                        function pathTween(d1, precision) {
+                          
+                            return function() {
+                                var path0 = this,
+                                    path1 = path0.cloneNode(),
+                                    n0 = path0.getTotalLength(),
+                                    n1 = (path1.setAttribute("d", d1), path1).getTotalLength();
+
+                                // Uniform sampling of distance based on specified precision.
+                                var distances = [0], 
+                                    i = 0, 
+                                    dt = precision / Math.max(n0, n1);
+                            
+                                while (i < 1) {
+                                    distances.push(i);
+                                    i += dt;
+                                }
+                            
+                                distances.push(1);
+
+                                // Compute point-interpolators at each distance.
+                                var points = distances.map(function(t) {
+                                  var p0 = path0.getPointAtLength(t * n0),
+                                      p1 = path1.getPointAtLength(t * n1);
+                                  return d3.interpolate([p0.x, p0.y], [p1.x, p1.y]);
+                                });
+
+                                return function(t) {
+                                  return t < 1 ? "M" + points.map(function(p) { return p(t); }).join("L") : d1;
+                                };
+                            };
+                        }
 
                         tripPath.transition()
-                            .duration(5000)
-                            .ease("linear")
-                            .attr('d', pathFunction);  // redraw path of vehicle
+                            .duration(3000)
+                            .attrTween('d', pathTween(pathFunction(tripPath.datum()), 4));
+                        
+                        //tripPath.style('stroke-opacity', thisModeOfTransportationName === 'Bus' ? 0.1 : 0.3);
+                        
                     }
                 }        
             }
