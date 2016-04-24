@@ -1,4 +1,5 @@
 * {
+    font-family: 'Helvetica', 'Arial', sans-serif;
     margin: 0;
     border: 0;
     padding: 0;
@@ -9,6 +10,11 @@ html, body {
     min-width: 100vw;
     min-height: 100vh;
     height: 100%;
+}
+
+a {
+    color: black;
+    text-decoration: none;
 }
 
 .page {
@@ -36,6 +42,7 @@ html, body {
 
 .byline {
     font-size: 5vmin;
+    cursor: pointer;
 }
 
 .mbta-live {
@@ -50,10 +57,115 @@ circle {
     cursor: pointer;
 }
 
-.update {
-    fill: green;
+@keyframes orbit {
+    from    {transform: rotate(0deg);}
+    to      {transform: rotate(360deg);}
 }
 
-.exit {
-    fill: red;
+.timer {
+    position: absolute;
+    top: 4.2%;
+    right: 4.2%;
+    width: 100px;
+    height: 100px;
+    background-color: transparent;
+    z-index: 10000;
+/*
+    transform: rotate(0deg);
+    transition: transform 30s linear;
+*/
 }
+
+.started {
+    animation: orbit 30s;
+    animation-timing-function: linear;
+    animation-iteration-count: 1;
+/*    transform: rotate(180deg);*/
+}
+
+.counter {
+    font-size: 2em;
+    position: absolute;
+    top: 8.4%;
+    right: 8.4%;
+    z-index: 1000;
+    padding-left: 2px;
+    text-align: center;
+    transform: translateX(50%) translateY(5%);
+    opacity: 0.3;
+}
+
+.dot {
+    position: absolute;
+    top: 0%;
+    right: 50%;
+    width: 20%;
+    height: 20%;
+    border-radius: 50%;
+    background-color: steelblue;
+    z-index: 10000;
+    transform: translateX(50%);
+    opacity: 0.3;
+}
+
+.track {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid black;
+    opacity: 0.1;
+    background-color: transparent;
+    z-index: 10000;
+}
+
+.timer:hover .dot, .timer:hover .track {
+    opacity: 1;
+}
+
+.timer:hover + .counter {
+    opacity: 1;
+}
+
+.track.one {
+    margin-left: 0%;
+    margin-top: 0%;
+    width: 100%;
+    height: 100%;
+}
+
+.track.two {
+    margin-left: 20%;
+    margin-top: 20%;
+    width: 60%;
+    height: 60%;
+}
+
+circle {
+    opacity: 0;
+    transition: opacity 3s;
+}
+
+circle.enter {
+    opacity: 1;
+    
+}
+
+circle.exit {
+    opacity: 0;
+}
+
+text.enter {
+    font-family: 'Helvetica', 'Arial', sans-serif;
+    opacity: 0;
+    
+}
+
+text.visible {
+    opacity: 1;
+    
+}
+
+text.invisible {
+    opacity: 0;
+    
+}
+

@@ -1,98 +1,71 @@
 'use strict';
 
-function drawLegendBox () {
-    var legend = d3.select('.mbta-map').append('g')
-        .attr('class', 'legend');
-
-    legend.append('rect')
-        .attr('class', 'legend-rect')
-        .attr('x', (1 - 0.249) * w)
-        .attr('y', 0.33 * h)
-        .attr('width', 0.166 * w)
-        .attr('height', 0.33 * h)
-        .style('fill', '#000000')
-        .style('stroke', '#ffffff')
-        .style('stroke-width', '1px');
+var subwayColors = {
+    blue: 'steelblue',
+    green: 'darkgreen',
+    red: 'firebrick',
+    orange: 'goldenrod'
 }
 
-function selectModeOfTransportationColor (modeOfTransportation, route) {
+function selectModeOfTransportationColor(modeOfTransportation, route) {
     
     var color = '';
     
     //console.log(route);
     switch (modeOfTransportation.mode_name) {
-        case 'Subway':
-            color = route.route_name.split(' Line')[0].toLowerCase();
-            break;
-        case 'Commuter Rail':
-            color = 'purple';
-            break;
-        case 'Bus':
-            color = 'black';
-            break;
-        case 'Boat':
-            color = 'white';
-            break;
-        default:
-            color = 'black';
+    case 'Subway':
+        color = subwayColors[route.route_name.split(' Line')[0].toLowerCase()];
+        break;
+    case 'Commuter Rail':
+        color = 'darkmagenta';
+        break;
+    case 'Bus':
+        color = 'black';
+        break;
+    case 'Boat':
+        color = 'seagreen';
+        break;
+    default:
+        color = 'snow';
     }
         
     return color;
 }
 
-function selectRouteColor (route) {
-        
-    if (route.mode_name === 'Subway') {
-      return route.route.route_name.split(' Line')[0].toLowerCase();
-    }
-    else if (route.mode_name === 'Commuter Rail') {
-       return 'purple';
-    }
-    else if (route.mode_name === 'Bus') {
-        return 'yellow';
-    }
-    else if (route.mode_name === 'Boat') {
-        return 'white';
-    }
-    else {
-        return 'color error';
-    }
-}
-
 function pathTween(d1, precision) {
                           
-    return function() {
-        var path0 = this,
-            path1 = path0.cloneNode(),
-            n0 = path0.getTotalLength(),
-            n1 = (path1.setAttribute("d", d1), path1).getTotalLength();
+    return function () {
+        var startPath = this,
+            finalPath = startPath.cloneNode(),
+            startPathLength = startPath.getTotalLength(),
+            finalPathLength = (finalPath.setAttribute("d", d1), finalPath).getTotalLength();
 
         // Uniform sampling of distance based on specified precision.
-        var distances = [0], 
-            i = 0, 
-            dt = precision / Math.max(n0, n1);
+        var fractionsAlongPath = [0], 
+            porportionAlongPath = 0, 
+            dt = precision / Math.max(startPathLength, startPathLength);
 
-        while (i < 1) {
-            distances.push(i);
-            i += dt;
+        while (porportionAlongPath < 1) {
+            fractionsAlongPath.push(porportionAlongPath);
+            porportionAlongPath += dt;
         }
 
-        distances.push(1);
+        fractionsAlongPath.push(1);
 
         // Compute point-interpolators at each distance.
-        var points = distances.map(function(t) {
-          var p0 = path0.getPointAtLength(t * n0),
-              p1 = path1.getPointAtLength(t * n1);
-          return d3.interpolate([p0.x, p0.y], [p1.x, p1.y]);
+        var interpolators = fractionsAlongPath.map(function (fraction) {
+          var startPoint = startPath.getPointAtLength(fraction * startPathLength),
+              finalPoint = finalPath.getPointAtLength(fraction * finalPathLength);
+          return d3.interpolate([startPoint.x, startPoint.y], [finalPoint.x, finalPoint.y]);
         });
 
-        return function(t) {
-          return t < 1 ? "M" + points.map(function(p) { return p(t); }).join("L") : d1;
+        return function (fraction) {
+          return fraction < 1 ? 'M' + interpolators.map(function (interpolator) {return interpolator(fraction);}).join('L') : d1;
         };
     };
 }
 
-function drawDotsForVehicles (vehicles, canvas) {
+function drawDotsForVehicles(vehicles, canvas) {
     
     var modesOfTransportation = Object.keys(vehicles).length > 0 ? vehicles.mode : [],
         canvasWidth = parseFloat(canvas.style('width')),
@@ -135,6 +108,7 @@ function drawDotsForVehicles (vehicles, canvas) {
                     thisDirectionId = thisDirection.direction_id,
                     thisDirectionName = thisDirection.direction_name,
                     thisDirectionTrips = thisDirection.trip,
+                    numberOfTrips = thisDirectionTrips.length,
                     thisRouteDirectionClass = 'route' + thisRouteId + 'direction' + thisDirectionId,
                     tripCircles = canvas.selectAll('circle.' + thisRouteDirectionClass)
                                         .data(thisDirectionTrips, function (d) {return d.vehicle.vehicle_id;}),
@@ -145,63 +119,75 @@ function drawDotsForVehicles (vehicles, canvas) {
                             ' to ' + thisDirectionTrips.map(function(trip){return trip.trip_headsign}).join(', '));
                 
                 tripCircles  // update selection
-                    .transition().duration(3000)
-                    .attr('cx', function (d) {return xScale(d.vehicle.vehicle_lon);})
-                    .attr('cy', function (d) {return yScale(d.vehicle.vehicle_lat);});
+                    .transition().duration(3000).delay(function(d, i) {return i * 1500;})
+                        .attr('cx', function (d) {return xScale(d.vehicle.vehicle_lon);})
+                        .attr('cy', function (d) {return yScale(d.vehicle.vehicle_lat);})
                 
                 tripCircles.enter()  // enter selection
                     .append('circle')
-                    .attr('class', thisRouteDirectionClass)
+                    .attr('class', thisRouteDirectionClass + ' enter')
                     .attr('id', function (d) {return thisRouteDirectionClass + d.trip_id + '_dot';})
                     .style('fill', thisRouteColor)
-                    .attr('r', 15)
-                    .attr('cx', function (d) {return xScale(d.vehicle.vehicle_lon);})
-                    .attr('cy', -1.5 * canvasHeight)
-                    .style('opacity', 0.5)
-                    .on('mouseenter', function () {
+                    .attr('r', 30)
+                    .attr('cx', function (d) {return canvasWidth * Math.random();})
+                    .attr('cy', -1.1 * canvasHeight)
+                    //.attr('enter', true)
+                    .on('mousedown', function () {
 
-                        var thisClass = d3.select(this).attr('class');
+                        var thisId = d3.select(this).attr('id').split('_dot')[0];
                        
-                        d3.select('text.' + thisClass)
-                            .style('opacity', 0.4);
+                        d3.select(this).transition()
+                            .ease('elastic').attr('r', 30);
+                        d3.select('#' + thisId + '_text')
+                            .attr('class', 'visible');
                     })
-                    .on('mouseleave', function () {
+                    .on('mouseup', function () {
                         
-                        var thisClass = d3.select(this).attr('class');
+                        var thisId = d3.select(this).attr('id').split('_dot')[0];
 
-                        d3.select('text.' + thisClass)
-                            .transition().duration(100)
-                            .style('opacity', 0);
+                        d3.select(this)
+                            .transition().ease('elastic')
+                            .attr('r', function (d) {
+                                if ( thisModeOfTransportationName === 'Bus' ) {
+                                    return 1.5;
+                                } else {
+                                    return Object.keys(d.vehicle).indexOf('vehicle_speed') > -1 ? 1 + Math.sqrt(d.vehicle.vehicle_speed) : 3;
+                                }
+                            });
+                            d3.select('#' + thisId + '_text')
+                                .transition().duration(100)
+                                .attr('class', 'invisible');
                     })
-                    .transition().duration(3000)
+                    .transition().duration(3000).delay(function(d, i) {return i * 500;}).ease('bounce')
+                        //.classed('enter', true)
                         .attr('r', function (d) {
-                            if ( thisModeOfTransportationName === 'Bus') {
+                            if ( thisModeOfTransportationName === 'Bus' ) {
                                 return 1.5;
                             } else {
                                 return Object.keys(d.vehicle).indexOf('vehicle_speed') > -1 ? 1 + Math.sqrt(d.vehicle.vehicle_speed) : 3;
                             }
                         })
-                        .attr('cy', function (d) {return yScale(d.vehicle.vehicle_lat);});
+                        .attr('cy', function (d) {return yScale(d.vehicle.vehicle_lat);})
+                        .attr('cx', function (d) {return xScale(d.vehicle.vehicle_lon);});
                 
                 tripCircles.exit() // exit selection
                     .transition().duration(3000)
-                        .style('opacity', 0)
-                        .attr('cy', 1.5 * canvasHeight)
-                        .attr('r', 15)
+                        .attr('class', 'exit')
+                        .attr('cy', Math.random() * canvasHeight)
+                        .attr('cx', -1.1 * canvasWidth)
+                        .attr('r', 30)
                         .remove(); 
                 
                 tripTexts.enter()  // enter selection
                     .append('text')
                     .attr('id', function (d) {return thisRouteDirectionClass + d.trip_id + '_text'})
-                    .attr('class', thisRouteDirectionClass)
+                    .attr('class', 'enter')
                     .attr('x', 0.01 * canvasWidth)
                     .attr('y', 0.05 * canvasHeight)
                     .text(function (d) {return thisRouteName + ' ' + thisDirectionName + ' to ' + d.trip_headsign;})
                     .attr('text-width', 0.2 * canvasWidth)
                     .style('font-size', 0.03 * canvasHeight)
-                    .style('font-family', 'sans-serif')
-                    .style('fill', thisRouteColor)
-                    .style('opacity', 0);
+                    .style('fill', thisRouteColor);
                 
                 tripTexts.exit().remove();  //exit selection
                 
@@ -234,11 +220,8 @@ function drawDotsForVehicles (vehicles, canvas) {
                                 .push({'vehicle_lat': thisTripLat,   // add new data point
                                         'vehicle_lon': thisTripLon});
 
-                        tripPath.transition()
-                            .duration(3000)
+                        tripPath.transition().duration(3000).delay(1500)
                             .attrTween('d', pathTween(pathFunction(tripPath.datum()), 4));
-                        
-                        //tripPath.style('stroke-opacity', thisModeOfTransportationName === 'Bus' ? 0.1 : 0.3);
                         
                     }
                 }        
@@ -247,7 +230,7 @@ function drawDotsForVehicles (vehicles, canvas) {
     }
 }
 
-function getVehicles (routes, callbackFunction) {
+function getVehicles(routes, callbackFunction) {
     
     // get vehicles on supplied list of route objects
     
@@ -280,10 +263,9 @@ function getVehicles (routes, callbackFunction) {
                 console.log('Error requesting data for ' + getParams.routes);
             });
     });
-    
 }
 
-function getRoutes (data) {
+function getRoutes(data) {
 
     var routeList = [],
         modesOfTransportation = data.mode;
@@ -302,9 +284,9 @@ function getRoutes (data) {
     }
     
     return routeList;
-};
+}
 
-function pollMbtaRoutes (callbackFunction) {
+function pollMbtaRoutes(callbackFunction) {
     
     var apiUrl = 'http://realtime.mbta.com/developer/api/v2/routes',
         apiKey = 'wX9NwuHnZU2ToO7GmGR9uw',//wX9NwuHnZU2ToO7GmGR9uw',4iS91ICFhEW6N3lGBVgU9g
@@ -317,7 +299,7 @@ function pollMbtaRoutes (callbackFunction) {
     return promise;
 }
 
-function drawVehicleDots (data, canvas) {
+function drawVehicleDots(data, canvas) {
     
     var routeList = getRoutes(data);
     
@@ -329,7 +311,7 @@ function drawVehicleDots (data, canvas) {
     
 }
 
-function mbtaLive (svgCanvas) {
+function mbtaLive(svgCanvas) {
     
     // Wrapper abstraction to run the fun
     
@@ -342,14 +324,31 @@ function mbtaLive (svgCanvas) {
     function recursiveMbtaLive () {
         setTimeout(function() {
             mbtaLive(svgCanvas);
+            $('.timer').removeClass('started');
         }, 30000);
     }
     
-    pollMbtaRoutes(drawVehicleDotsOnCanvas).done(recursiveMbtaLive);
+    function countDown (startTime, $obj) {
+        var newTime = startTime - 1;
+        
+        $obj.text(newTime);
+        
+        if (newTime > 0) {
+            setTimeout(function () {
+                countDown($obj.text(), $obj);
+            }, 1000);
+        }
+    }
     
+    pollMbtaRoutes(drawVehicleDotsOnCanvas)
+        .done(function () {
+            countDown(30, $('.counter'));
+            $('.timer').addClass('started');
+        })
+        .done(recursiveMbtaLive);
 }
 
-function setupSvgCanvas (container, thisClass, bgColor) {
+function setupSvgCanvas(container, thisClass, bgColor) {
     
     var containerWidth = $(container).width(),
         containerHeight = $(container).height(),
@@ -363,17 +362,22 @@ function setupSvgCanvas (container, thisClass, bgColor) {
     
 }
 
-function main () {
+function main() {
     
     var windowWidth = $(window).width(),
         windowHeight = $(window).height(),
         mbtaLiveContainer = '.mbta-live',
-        backgroundColor = '#c6c6c6',
+        backgroundColor = 'rgb(222, 222, 222)',
         svgCanvasClass = 'mbta-map',
-        mbtaLiveCanvas = setupSvgCanvas(mbtaLiveContainer, svgCanvasClass, backgroundColor);
+        mbtaLiveCanvas = setupSvgCanvas(mbtaLiveContainer, svgCanvasClass, backgroundColor),
+        homeUrl = 'http://eachanjohnson.com';
     
     mbtaLive(mbtaLiveCanvas);
-
+    
+    $('.byline a').attr('href', homeUrl);
+    $('.byline').click(function(){        
+        window.open(homeUrl);
+    })
 }
 
 // run after page loaded
